@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tote Stack Calc & Correction - 物流現場計算ツール</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'Noto Sans JP', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Disable double-tap zoom for fast input tapping on mobile/handhelds */
+    button, input {
+      touch-action: manipulation;
+    }
+
+    /* Hide Chrome/Safari/Edge number input spin buttons */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+
+    .no-select {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 9999px;
+    }
+
+    .preset-btn {
+      @apply px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 active:bg-amber-500 active:text-slate-950 text-slate-300 hover:text-white text-[11px] font-bold border border-slate-700/80 transition active:scale-95 no-select cursor-pointer;
+    }
+    .adjust-btn {
+      @apply flex-1 py-1 px-1.5 rounded bg-slate-800 hover:bg-slate-700 active:bg-amber-500 active:text-slate-950 text-slate-300 hover:text-white text-[11px] font-bold border border-slate-700/80 transition active:scale-95 text-center no-select cursor-pointer;
+    }
+    .tab-btn {
+      @apply text-slate-400 bg-slate-950/60 border-slate-800 hover:text-slate-200 hover:bg-slate-800/50 cursor-pointer;
+    }
+    .tab-btn.active {
+      @apply text-white bg-slate-800 border-amber-500/50 shadow-sm;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans bg-slate-950 text-slate-100 transition-colors duration-200 antialiased selection:bg-amber-500 selection:text-slate-950">
+
+  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-30 shadow-md">
+    <div class="max-w-6xl mx-auto px-3 sm:px-6">
+      <div class="flex items-center justify-between h-14">
+        <!-- Logo & Title -->
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center text-slate-950 font-black text-lg shadow-md shadow-amber-500/20">
+            <i class="fa-solid fa-boxes-stacked"></i>
+          </div>
+          <div>
+            <h1 class="text-base font-extrabold tracking-tight text-white flex items-center gap-2 leading-none">
+              Tote Stack Calc
+              <span class="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold">Web v2.1</span>
+            </h1>
+            <p class="text-[11px] text-slate-400 mt-0.5">物流現場補助計算ツール (オリコン・サンテナ・カゴ車・差分修正)</p>
+          </div>
+        </div>
+
+        <!-- Right Header Actions -->
+        <div class="flex items-center space-x-2">
+          <!-- Dark/Light Theme Toggle -->
+          <button id="theme-toggle" onclick="toggleTheme()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition border border-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer">
+            <i id="theme-icon" class="fa-solid fa-moon text-amber-400"></i>
+          </button>
+          
+          <!-- Guide Modal Trigger -->
+          <button onclick="openHelpModal()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition border border-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer">
+            <i class="fa-solid fa-circle-question text-sky-400"></i>
+            <span class="hidden sm:inline">使い方</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="bg-slate-900/90 border-t border-slate-800/80">
+      <div class="max-w-6xl mx-auto px-2">
+        <nav class="flex space-x-1 py-1.5 overflow-x-auto" aria-label="Tabs">
+          <button id="tab-btn-correction" onclick="switchTab('correction')" class="tab-btn active flex-1 min-w-[120px] py-2 px-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border">
+            <i class="fa-solid fa-right-left text-amber-400"></i>
+            <span>1. 差分修正 (Correction)</span>
+          </button>
+          
+          <button id="tab-btn-totes" onclick="switchTab('totes')" class="tab-btn flex-1 min-w-[120px] py-2 px-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border">
+            <i class="fa-solid fa-box text-sky-400"></i>
+            <span>2. トート/ドーリー (Totes)</span>
+          </button>
+
+          <button id="tab-btn-carts" onclick="switchTab('carts')" class="tab-btn flex-1 min-w-[120px] py-2 px-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border">
+            <i class="fa-solid fa-truck-ramp-box text-emerald-400"></i>
+            <span>3. カゴ車 (Carts)</span>
+          </button>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-4 overflow-y-auto">
+
+    <section id="module-correction" class="tab-content space-y-4">
+      
+      <!-- Top Explanation Card -->
+      <div class="bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/30 rounded-xl p-3.5 sm:p-4 shadow">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <h2 class="text-sm sm:text-base font-bold text-amber-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              入り数・作業ケース差分修正 (Correction)
+            </h2>
+            <p class="text-xs text-slate-300 mt-0.5">
+              「誤ったデータ」と「正しいデータ」を比較し、現場で<strong class="text-emerald-300">「追加(補填)」</strong>するか<strong class="text-rose-300">「取り除く(返却)」</strong>かを明確に判定します。
+            </p>
+          </div>
+          <button onclick="resetCorrectionInputs()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 hover:text-white transition shrink-0 flex items-center gap-1 cursor-pointer">
+            <i class="fa-solid fa-rotate-left"></i> リセット
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        
+        <!-- Input Side (7 Cols) -->
+        <div class="lg:col-span-7 space-y-4">
+          
+          <!-- Box 1: System / Current Registered Data -->
+          <div class="bg-slate-900 rounded-xl border border-slate-800 p-3.5 sm:p-4 shadow-sm relative hover:border-slate-700 transition">
+            <div class="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-800">
+              <span class="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                STEP 1. 現在/登録済みのデータ (または誤った作業数)
+              </span>
+              <span class="text-[11px] text-slate-400">現在地</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <!-- Current Pack Size -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">
+                  登録時の入り数 (個/ケース)
+                </label>
+                <div class="flex rounded-lg shadow-sm">
+                  <input type="number" id="corr-sys-pcs" min="1" value="10" oninput="calculateCorrection()"
+                    class="block w-full bg-slate-950 border border-slate-700 rounded-l-lg px-3 py-2 text-base font-extrabold text-rose-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none">
+                  <span class="inline-flex items-center px-2.5 rounded-r-lg border border-l-0 border-slate-700 bg-slate-800 text-slate-400 text-xs font-semibold">
+                    個
+                  </span>
+                </div>
+                <!-- Presets -->
+                <div class="flex gap-1 mt-1.5 flex-wrap">
+                  <span class="text-[10px] text-slate-500 self-center mr-0.5">定番:</span>
+                  <button onclick="setInputValue('corr-sys-pcs', 5)" class="preset-btn">5</button>
+                  <button onclick="setInputValue('corr-sys-pcs', 6)" class="preset-btn">6</button>
+                  <button onclick="setInputValue('corr-sys-pcs', 10)" class="preset-btn">10</button>
+                  <button onclick="setInputValue('corr-sys-pcs', 12)" class="preset-btn">12</button>
+                  <button onclick="setInputValue('corr-sys-pcs', 20)" class="preset-btn">20</button>
+                  <button onclick="setInputValue('corr-sys-pcs', 24)" class="preset-btn">24</button>
+                </div>
+              </div>
+
+              <!-- Current Case Count -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">
+                  登録ケース数 (ケース)
+                </label>
+                <div class="flex rounded-lg shadow-sm">
+                  <input type="number" id="corr-sys-cases" min="0" value="12" oninput="calculateCorrection()"
+                    class="block w-full bg-slate-950 border border-slate-700 rounded-l-lg px-3 py-2 text-base font-extrabold text-white focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none">
+                  <span class="inline-flex items-center px-2.5 rounded-r-lg border border-l-0 border-slate-700 bg-slate-800 text-slate-400 text-xs font-semibold">
+                    CS
+                  </span>
+                </div>
+                <!-- Quick Adjust Buttons -->
+                <div class="flex gap-1 mt-1.5">
+                  <button onclick="adjustValue('corr-sys-cases', -5)" class="adjust-btn">-5</button>
+                  <button onclick="adjustValue('corr-sys-cases', -1)" class="adjust-btn">-1</button>
+                  <button onclick="adjustValue('corr-sys-cases', 1)" class="adjust-btn">+1</button>
+                  <button onclick="adjustValue('corr-sys-cases', 5)" class="adjust-btn">+5</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-2.5 pt-2 border-t border-slate-800/80 flex justify-between items-center text-xs">
+              <span class="text-slate-400">現在登録の合計個数:</span>
+              <span class="font-extrabold text-rose-400 text-sm"><span id="corr-sys-total-display">120</span> 個</span>
+            </div>
+          </div>
+
+
+          <!-- Box 2: Correct / Actual Data -->
+          <div class="bg-slate-900 rounded-xl border border-slate-800 p-3.5 sm:p-4 shadow-sm relative hover:border-slate-700 transition">
+            <div class="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-800">
+              <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                STEP 2. 正しい/実際のデータ (目標・あるべき姿)
+              </span>
+              <span class="text-[11px] text-slate-400">目的地</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <!-- Correct Pack Size -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">
+                  正しい入り数 (個/ケース)
+                </label>
+                <div class="flex rounded-lg shadow-sm">
+                  <input type="number" id="corr-act-pcs" min="1" value="12" oninput="calculateCorrection()"
+                    class="block w-full bg-slate-950 border border-slate-700 rounded-l-lg px-3 py-2 text-base font-extrabold text-emerald-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none">
+                  <span class="inline-flex items-center px-2.5 rounded-r-lg border border-l-0 border-slate-700 bg-slate-800 text-slate-400 text-xs font-semibold">
+                    個
+                  </span>
+                </div>
+                <!-- Presets -->
+                <div class="flex gap-1 mt-1.5 flex-wrap">
+                  <span class="text-[10px] text-slate-500 self-center mr-0.5">定番:</span>
+                  <button onclick="setInputValue('corr-act-pcs', 5)" class="preset-btn">5</button>
+                  <button onclick="setInputValue('corr-act-pcs', 6)" class="preset-btn">6</button>
+                  <button onclick="setInputValue('corr-act-pcs', 10)" class="preset-btn">10</button>
+                  <button onclick="setInputValue('corr-act-pcs', 12)" class="preset-btn">12</button>
+                  <button onclick="setInputValue('corr-act-pcs', 20)" class="preset-btn">20</button>
+                  <button onclick="setInputValue('corr-act-pcs', 24)" class="preset-btn">24</button>
+                </div>
+              </div>
+
+              <!-- Correct Case Count -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">
+                  正しいケース数 (ケース)
+                </label>
+                <div class="flex rounded-lg shadow-sm">
+                  <input type="number" id="corr-act-cases" min="0" value="12" oninput="calculateCorrection()"
+                    class="block w-full bg-slate-950 border border-slate-700 rounded-l-lg px-3 py-2 text-base font-extrabold text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none">
+                  <span class="inline-flex items-center px-2.5 rounded-r-lg border border-l-0 border-slate-700 bg-slate-800 text-slate-400 text-xs font-semibold">
+                    CS
+                  </span>
+                </div>
+                <!-- Quick Adjust Buttons -->
+                <div class="flex gap-1 mt-1.5">
+                  <button onclick="adjustValue('corr-act-cases', -5)" class="adjust-btn">-5</button>
+                  <button onclick="adjustValue('corr-act-cases', -1)" class="adjust-btn">-1</button>
+                  <button onclick="adjustValue('corr-act-cases', 1)" class="adjust-btn">+1</button>
+                  <button onclick="adjustValue('corr-act-cases', 5)" class="adjust-btn">+5</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-2.5 pt-2 border-t border-slate-800/80 flex justify-between items-center text-xs">
+              <span class="text-slate-400">正しい合計個数:</span>
+              <span class="font-extrabold text-emerald-400 text-sm"><span id="corr-act-total-display">144</span> 個</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Output Result Panel (5 Cols) -->
+        <div class="lg:col-span-5 flex flex-col justify-between space-y-4">
+          
+          <div class="bg-slate-900 rounded-xl border border-slate-800 p-4 shadow-xl relative overflow-hidden flex-1 flex flex-col justify-between">
+            
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-3">
+                <i class="fa-solid fa-square-poll-vertical text-amber-400 mr-1"></i>
+                現場での作業指示判定
+              </span>
+
+              <!-- Status Banner -->
+              <div id="corr-status-card" class="rounded-xl p-3.5 border transition-all duration-300 bg-emerald-950/40 border-emerald-500/40 text-emerald-300 mb-4 shadow-sm">
+                <div class="flex items-start gap-3">
+                  <div id="corr-status-icon-bg" class="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 text-xl font-black">
+                    <i id="corr-status-icon" class="fa-solid fa-plus"></i>
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span id="corr-status-badge" class="px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        🟢 不足 (追加作業)
+                      </span>
+                    </div>
+                    <h3 id="corr-status-title" class="text-base sm:text-lg font-black text-white mt-1 leading-tight">
+                      +24 個 不足 ➔ 現場へ追加が必要
+                    </h3>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Main Numeric Display -->
+              <div class="bg-slate-950 rounded-lg p-3.5 border border-slate-800 mb-4">
+                <div class="text-[11px] text-slate-400 mb-1 flex justify-between">
+                  <span>差分個数 (正解 - 現在)</span>
+                  <span id="corr-formula-text" class="font-mono text-slate-500">144 - 120 = +24</span>
+                </div>
+                <div class="flex items-baseline justify-between">
+                  <div class="text-3xl font-black tracking-tight" id="corr-diff-pcs-display">
+                    +24 <span class="text-xs font-semibold text-slate-400">個</span>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-[10px] text-slate-400">ケース換算 (正しい入り数基準)</div>
+                    <div class="text-sm font-bold text-amber-400" id="corr-diff-cases-display">
+                      +2 ケース (端数0)
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Step Breakdown -->
+              <div class="space-y-2 text-xs text-slate-300">
+                <div class="font-bold text-slate-200 border-b border-slate-800 pb-1 flex items-center gap-1.5">
+                  <i class="fa-solid fa-list-check text-amber-400"></i> 作業手順:
+                </div>
+                
+                <div class="p-2.5 bg-slate-950 rounded-lg border border-slate-800 space-y-1.5">
+                  <div class="flex items-start gap-1.5 text-[11px]">
+                    <span class="w-4 h-4 rounded bg-slate-800 text-slate-300 flex items-center justify-center shrink-0 font-bold text-[9px] mt-0.5">1</span>
+                    <p id="corr-step-1-text">現在の登録は <strong class="text-rose-300">10個入り × 12CS = 120個</strong> です。</p>
+                  </div>
+                  <div class="flex items-start gap-1.5 text-[11px]">
+                    <span class="w-4 h-4 rounded bg-slate-800 text-slate-300 flex items-center justify-center shrink-0 font-bold text-[9px] mt-0.5">2</span>
+                    <p id="corr-step-2-text">正しい目標は <strong class="text-emerald-300">12個入り × 12CS = 144個</strong> です。</p>
+                  </div>
+                  <div class="flex items-start gap-1.5 text-[11px]">
+                    <span id="corr-step-3-num" class="w-4 h-4 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 font-bold text-[9px] mt-0.5">3</span>
+                    <p id="corr-step-3-text" class="font-semibold text-white">差分の <strong class="text-emerald-400">24個 (2ケース)</strong> を追加してください。</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Caution Tip -->
+            <div class="mt-3 pt-2 border-t border-slate-800 text-[10px] text-slate-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-lightbulb text-amber-400 shrink-0"></i>
+              <span>プラス(+)は追加補充、マイナス(-)は取り除き（棚還元）を指します。</span>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section id="module-totes" class="tab-content hidden space-y-4">
+      
+      <div class="bg-gradient-to-r from-sky-950/40 via-slate-900 to-slate-900 border border-sky-500/30 rounded-xl p-3.5 sm:p-4 shadow">
+        <h2 class="text-sm sm:text-base font-bold text-sky-400 flex items-center gap-1.5">
+          <i class="fa-solid fa-boxes-stacked"></i>
+          オリコン・サンテナ＆ドーリー（台車）段数計算 (Totes & Dolly Calc)
+        </h2>
+        <p class="text-xs text-slate-300 mt-0.5">
+          総出荷数から必要なオリコン箱数・ドーリーの満載台数・端数段数を一括計算します。
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        
+        <!-- Inputs (5 Cols) -->
+        <div class="lg:col-span-5 bg-slate-900 rounded-xl border border-slate-800 p-4 shadow-sm space-y-4">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-sky-400 border-b border-slate-800 pb-1.5">
+            条件設定
+          </h3>
+
+          <!-- Total Quantity -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">
+              総出荷・作業個数 (個)
+            </label>
+            <div class="flex rounded-lg shadow-sm">
+              <input type="number" id="tote-total-pcs" min="1" value="250" oninput="calculateTotes()"
+                class="block w-full bg-slate-950 border border-slate-700 rounded-l-lg px-3 py-2 text-base font-extrabold text-sky-300 focus:ring-2 focus:ring-sky-500 outline-none">
+              <span class="inline-flex items-center px-2.5 rounded-r-lg border border-l-0 border-slate-700 bg-slate-800 text-slate-400 text-xs font-semibold">
+                個
+              </span>
+            </div>
+            <div class="flex gap-1 mt-1.5">
+              <button onclick="adjustValue('tote-total-pcs', -50)" class="adjust-btn">-50</button>
+              <button onclick="adjustValue('tote-total-pcs', -10)" class="adjust-btn">-10</button>
+              <button onclick="adjustValue('tote-total-pcs', 10)" class="adjust-btn">+10</button>
+              <button onclick="adjustValue('tote-total-pcs', 50)" class="adjust-btn">+50</button>
+            </div>
+          </div>
+
+          <!-- Items per Tote -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">
+              1オリコンの入り数 (個/箱)
+            </label>
+            <div class="flex rounded-lg shadow-sm">
+              <input type="number" id="tote-pcs-per-box" min="1" value="12" oninput="calculateTotes()"
+                class="block w-full bg-slate-950 border border-slate-700 rounded-l-lg px-3 py-2 text-base font-extrabold text-white focus:ring-2 focus:ring-sky-500 outline-none">
+              <span class="inline-flex items-center px-2.5 rounded-r-lg border border-l-0 border-slate-700 bg-slate-800 text-slate-400 text-xs font-semibold">
+                個/箱
+              </span>
+            </div>
+            <div class="flex gap-1 mt-1.5 flex-wrap">
+              <button onclick="setInputValue('tote-pcs-per-box', 6)" class="preset-btn">6</button>
+              <button onclick="setInputValue('tote-pcs-per-box', 8)" class="preset-btn">8</button>
+              <button onclick="setInputValue('tote-pcs-per-box', 10)" class="preset-btn">10</button>
+              <button onclick="setInputValue('tote-pcs-per-box', 12)" class="preset-btn">12</button>
+              <button onclick="setInputValue('tote-pcs-per-box', 20)" class="preset-btn">20</button>
+              <button onclick="setInputValue('tote-pcs-per-box', 24)" class="preset-btn">24</button>
+            </div>
+          </div>
+
+          <!-- Stack Limit per Dolly -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">
+              ドーリー1台の最高積み段数 (段/台)
+            </label>
+            <div class="flex rounded-lg shadow-sm">
+              <input type="number" id="tote-stack-per-dolly" min="1" max="10" value="5" oninput="calculateTotes()"
+                class="block w-full bg-slate-950 border border-slate-700 rounded-l-lg px-3 py-2 text-base font-extrabold text-white focus:ring-2 focus:ring-sky-500 outline-none">
+              <span class="inline-flex items-center px-2.5 rounded-r-lg border border-l-0 border-slate-700 bg-slate-800 text-slate-400 text-xs font-semibold">
+                段
+              </span>
+            </div>
+            <div class="flex gap-1 mt-1.5">
+              <button onclick="setInputValue('tote-stack-per-dolly', 4)" class="preset-btn">4段積</button>
+              <button onclick="setInputValue('tote-stack-per-dolly', 5)" class="preset-btn">5段積 (標準)</button>
+              <button onclick="setInputValue('tote-stack-per-dolly', 6)" class="preset-btn">6段積</button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Results & Graphics (7 Cols) -->
+        <div class="lg:col-span-7 space-y-4">
+          
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between shadow-sm">
+              <span class="text-xs text-slate-400 font-medium">総オリコン数</span>
+              <div class="text-2xl font-black text-sky-400 mt-1" id="res-tote-total-boxes">
+                21 <span class="text-xs text-slate-400 font-semibold">箱</span>
+              </div>
+              <span class="text-[10px] text-slate-500 mt-1" id="res-tote-box-sub">満載20箱 + 端数1箱</span>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between shadow-sm">
+              <span class="text-xs text-slate-400 font-medium">満載ドーリー</span>
+              <div class="text-2xl font-black text-amber-400 mt-1" id="res-tote-full-dollies">
+                4 <span class="text-xs text-slate-400 font-semibold">台</span>
+              </div>
+              <span class="text-[10px] text-slate-500 mt-1" id="res-tote-dolly-sub">1台60個積載</span>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between shadow-sm col-span-2 sm:col-span-1">
+              <span class="text-xs text-slate-400 font-medium">端数ドーリー / 余り</span>
+              <div class="text-2xl font-black text-emerald-400 mt-1" id="res-tote-remainder">
+                1 <span class="text-xs text-slate-400 font-semibold">段</span> <span class="text-sm font-bold text-slate-300">(10個)</span>
+              </div>
+              <span class="text-[10px] text-slate-500 mt-1" id="res-tote-loose-sub">端数箱10個</span>
+            </div>
+
+          </div>
+
+          <!-- Graphical Visualizer -->
+          <div class="bg-slate-900 rounded-xl border border-slate-800 p-4 shadow-md">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center justify-between">
+              <span><i class="fa-solid fa-layer-group text-sky-400 mr-1"></i> スタック構成イメージ</span>
+              <span class="text-[10px] text-slate-500 font-normal">ドーリー積載図</span>
+            </h4>
+
+            <div id="dolly-visual-container" class="flex gap-2.5 overflow-x-auto pb-2 pt-2 min-h-[150px] items-end">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <section id="module-carts" class="tab-content hidden space-y-4">
+      
+      <div class="bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-xl p-3.5 sm:p-4 shadow">
+        <h2 class="text-sm sm:text-base font-bold text-emerald-400 flex items-center gap-1.5">
+          <i class="fa-solid fa-truck-ramp-box"></i>
+          カゴ車積載計算 (Carts Calc)
+        </h2>
+        <p class="text-xs text-slate-300 mt-0.5">
+          オリコン・サンテナ箱数から必要なカゴ車台数および端数・積載率を求めます。
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        
+        <!-- Inputs (5 Cols) -->
+        <div class="lg:col-span-5 bg-slate-900 rounded-xl border border-slate-800 p-4 shadow-sm space-y-4">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400 border-b border-slate-800 pb-1.5">
+            カゴ車条件設定
+          </h3>
+
+          <!-- Total Boxes -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">
+              積載するオリコン総箱数 (箱)
+            </label>
+            <div class="flex rounded-lg shadow-sm">
+              <input type="number" id="cart-total-boxes" min="1" value="85" oninput="calculateCarts()"
+                class="block w-full bg-slate-950 border border-slate-700 rounded-l-lg px-3 py-2 text-base font-extrabold text-emerald-300 focus:ring-2 focus:ring-emerald-500 outline-none">
+              <span class="inline-flex items-center px-2.5 rounded-r-lg border border-l-0 border-slate-700 bg-slate-800 text-slate-400 text-xs font-semibold">
+                箱
+              </span>
+            </div>
+            <div class="flex gap-1 mt-1.5">
+              <button onclick="adjustValue('cart-total-boxes', -20)" class="adjust-btn">-20</button>
+              <button onclick="adjustValue('cart-total-boxes', -5)" class="adjust-btn">-5</button>
+              <button onclick="adjustValue('cart-total-boxes', 5)" class="adjust-btn">+5</button>
+              <button onclick="adjustValue('cart-total-boxes', 20)" class="adjust-btn">+20</button>
+            </div>
+          </div>
+
+          <!-- Cart Capacity -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">
+              カゴ車1台あたりの積載上限 (箱/台)
+            </label>
+            <div class="flex rounded-lg shadow-sm">
+              <input type="number" id="cart-capacity" min="1" value="24" oninput="calculateCarts()"
+                class="block w-full bg-slate-950 border border-slate-700 rounded-l-lg px-3 py-2 text-base font-extrabold text-white focus:ring-2 focus:ring-emerald-500 outline-none">
+              <span class="inline-flex items-center px-2.5 rounded-r-lg border border-l-0 border-slate-700 bg-slate-800 text-slate-400 text-xs font-semibold">
+                箱/台
+              </span>
+            </div>
+            <div class="flex gap-1 mt-1.5 flex-wrap">
+              <button onclick="setInputValue('cart-capacity', 16)" class="preset-btn">16箱 (4列×4段)</button>
+              <button onclick="setInputValue('cart-capacity', 20)" class="preset-btn">20箱</button>
+              <button onclick="setInputValue('cart-capacity', 24)" class="preset-btn">24箱 (4列×6段)</button>
+              <button onclick="setInputValue('cart-capacity', 30)" class="preset-btn">30箱</button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Results (7 Cols) -->
+        <div class="lg:col-span-7 space-y-4">
+          
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between shadow-sm">
+              <span class="text-xs text-slate-400 font-medium">合計カゴ車台数</span>
+              <div class="text-2xl font-black text-emerald-400 mt-1" id="res-cart-total-carts">
+                4 <span class="text-xs text-slate-400 font-semibold">台</span>
+              </div>
+              <span class="text-[10px] text-slate-500 mt-1" id="res-cart-total-sub">満載3台 + 端数1台</span>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between shadow-sm">
+              <span class="text-xs text-slate-400 font-medium">満載カゴ車</span>
+              <div class="text-2xl font-black text-white mt-1" id="res-cart-full-carts">
+                3 <span class="text-xs text-slate-400 font-semibold">台</span>
+              </div>
+              <span class="text-[10px] text-slate-500 mt-1" id="res-cart-full-sub">72箱分</span>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between shadow-sm col-span-2 sm:col-span-1">
+              <span class="text-xs text-slate-400 font-medium">端数カゴ車 (積み箱数)</span>
+              <div class="text-2xl font-black text-amber-400 mt-1" id="res-cart-remainder-boxes">
+                13 <span class="text-xs text-slate-400 font-semibold">箱</span>
+              </div>
+              <span class="text-[10px] text-slate-500 mt-1" id="res-cart-remainder-sub">空き11箱分</span>
+            </div>
+
+          </div>
+
+          <!-- Cart Visual Container -->
+          <div class="bg-slate-900 rounded-xl border border-slate-800 p-4 shadow-md">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center justify-between">
+              <span><i class="fa-solid fa-dolly text-emerald-400 mr-1"></i> カゴ車配置割合</span>
+              <span class="text-[10px] text-slate-500 font-normal">積み込み状態</span>
+            </h4>
+
+            <div id="cart-visual-container" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <div id="help-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 hidden">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-5 shadow-2xl relative space-y-3">
+      <button onclick="closeHelpModal()" class="absolute top-3 right-3 text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer">
+        <i class="fa-solid fa-xmark text-base"></i>
+      </button>
+
+      <div class="flex items-center gap-2 border-b border-slate-800 pb-2">
+        <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-sm">
+          <i class="fa-solid fa-circle-info"></i>
+        </div>
+        <h3 class="text-sm font-bold text-white">差分修正 (Correction) の考え方</h3>
+      </div>
+
+      <div class="text-xs text-slate-300 space-y-2.5 leading-relaxed">
+        <p>
+          現場での「誤った入り数で出荷・入荷してしまった」等の間違いに対し、プラス/マイナスの現場アクションを視覚化します。
+        </p>
+
+        <div class="p-2.5 bg-slate-950 rounded-lg border border-slate-800 space-y-1">
+          <div class="font-bold text-emerald-400 flex items-center gap-1">
+            <span>🟢 差分がプラス (+X) ＝ 【不足】</span>
+          </div>
+          <p class="text-slate-400 text-[11px]">
+            「正しい目標数」に対して「現品作業数」が不足しています。現場へ <strong class="text-white">【追加・補充】</strong> してください。
+          </p>
+        </div>
+
+        <div class="p-2.5 bg-slate-950 rounded-lg border border-slate-800 space-y-1">
+          <div class="font-bold text-rose-400 flex items-center gap-1">
+            <span>🔴 差分がマイナス (-X) ＝ 【超過】</span>
+          </div>
+          <p class="text-slate-400 text-[11px]">
+            「正しい目標数」に対して「現品作業数」が多くなり過ぎています。現場から <strong class="text-white">【取り除く・棚還元】</strong> してください。
+          </p>
+        </div>
+      </div>
+
+      <button onclick="closeHelpModal()" class="w-full py-2 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition cursor-pointer">
+        閉じる
+      </button>
+    </div>
+  </div>
+
+  <footer class="bg-slate-950 border-t border-slate-800 py-2.5 text-center text-[11px] text-slate-500">
+    Tote Stack Calc - Logistics Assistant &copy; Web Edition
+  </footer>
+
+  <script>
+    /* ==========================================================================
+       Global App State & Theme Toggle
+       ========================================================================== */
+    let currentTab = 'correction';
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      const icon = document.getElementById('theme-icon');
+      if (html.classList.contains('dark')) {
+        html.classList.remove('dark');
+        icon.className = 'fa-solid fa-sun text-amber-500';
+      } else {
+        html.classList.add('dark');
+        icon.className = 'fa-solid fa-moon text-amber-400';
+      }
+    }
+
+    function switchTab(tabName) {
+      currentTab = tabName;
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+      const activeContent = document.getElementById(`module-${tabName}`);
+      if (activeContent) activeContent.classList.remove('hidden');
+
+      if (tabName === 'correction') calculateCorrection();
+      if (tabName === 'totes') calculateTotes();
+      if (tabName === 'carts') calculateCarts();
+    }
+
+    function setInputValue(id, val) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.value = val;
+        el.dispatchEvent(new Event('input'));
+      }
+    }
+
+    function adjustValue(id, delta) {
+      const el = document.getElementById(id);
+      if (el) {
+        let current = parseInt(el.value, 10) || 0;
+        let updated = Math.max(0, current + delta);
+        el.value = updated;
+        el.dispatchEvent(new Event('input'));
+      }
+    }
+
+    /* ==========================================================================
+       MODULE 1: CORRECTION CALCULATION
+       ========================================================================== */
+    function calculateCorrection() {
+      // 1. Registered / System Data
+      const sysPcs = Math.max(1, parseInt(document.getElementById('corr-sys-pcs').value, 10) || 1);
+      const sysCases = Math.max(0, parseInt(document.getElementById('corr-sys-cases').value, 10) || 0);
+      const sysTotal = sysPcs * sysCases;
+
+      document.getElementById('corr-sys-total-display').innerText = sysTotal.toLocaleString();
+
+      // 2. Correct / Actual Data
+      const actPcs = Math.max(1, parseInt(document.getElementById('corr-act-pcs').value, 10) || 1);
+      const actCases = Math.max(0, parseInt(document.getElementById('corr-act-cases').value, 10) || 0);
+      const actTotal = actPcs * actCases;
+
+      document.getElementById('corr-act-total-display').innerText = actTotal.toLocaleString();
+
+      // 3. Diff Calculation (Target Correct - Current Registered)
+      const diffPcs = actTotal - sysTotal;
+      const absDiffPcs = Math.abs(diffPcs);
+
+      // Formula display
+      document.getElementById('corr-formula-text').innerText = `${actTotal} - ${sysTotal} = ${diffPcs >= 0 ? '+' : ''}${diffPcs}`;
+
+      // Case breakdown in terms of correct pack size
+      const fullCasesDiff = Math.floor(absDiffPcs / actPcs);
+      const loosePcsDiff = absDiffPcs % actPcs;
+
+      let caseDiffStr = "";
+      if (fullCasesDiff > 0 && loosePcsDiff > 0) {
+        caseDiffStr = `${diffPcs >= 0 ? '+' : '-'}${fullCasesDiff}CS + 端数${loosePcsDiff}個`;
+      } else if (fullCasesDiff > 0) {
+        caseDiffStr = `${diffPcs >= 0 ? '+' : '-'}${fullCasesDiff}ケース (端数0)`;
+      } else {
+        caseDiffStr = `端数${loosePcsDiff}個 (0ケース)`;
+      }
+
+      document.getElementById('corr-diff-cases-display').innerText = caseDiffStr;
+
+      // 4. Status UI Updates
+      const statusCard = document.getElementById('corr-status-card');
+      const statusIconBg = document.getElementById('corr-status-icon-bg');
+      const statusIcon = document.getElementById('corr-status-icon');
+      const statusBadge = document.getElementById('corr-status-badge');
+      const statusTitle = document.getElementById('corr-status-title');
+      const diffDisplay = document.getElementById('corr-diff-pcs-display');
+
+      const step1Text = document.getElementById('corr-step-1-text');
+      const step2Text = document.getElementById('corr-step-2-text');
+      const step3Text = document.getElementById('corr-step-3-text');
+      const step3Num = document.getElementById('corr-step-3-num');
+
+      step1Text.innerHTML = `現在の登録は <strong class="text-rose-300">${sysPcs}個入り × ${sysCases}CS = ${sysTotal}個</strong> です。`;
+      step2Text.innerHTML = `正しい目標は <strong class="text-emerald-300">${actPcs}個入り × ${actCases}CS = ${actTotal}個</strong> です。`;
+
+      if (diffPcs > 0) {
+        // 🟢 SHORTAGE -> ADDITION NEEDED
+        statusCard.className = "rounded-xl p-3.5 border transition-all duration-300 bg-emerald-950/40 border-emerald-500/40 text-emerald-300 mb-4 shadow-sm";
+        statusIconBg.className = "w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 text-xl font-black";
+        statusIcon.className = "fa-solid fa-plus";
+        statusBadge.className = "px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+        statusBadge.innerText = "🟢 不足 (追加作業)";
+        statusTitle.innerText = `+${diffPcs} 個 不足 ➔ 現場へ追加が必要`;
+        
+        diffDisplay.className = "text-3xl font-black tracking-tight text-emerald-400";
+        diffDisplay.innerHTML = `+${diffPcs} <span class="text-xs font-semibold text-slate-400">個</span>`;
+
+        step3Num.className = "w-4 h-4 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 font-bold text-[9px] mt-0.5";
+        step3Text.innerHTML = `現場へ <strong class="text-emerald-400">${diffPcs}個 (${caseDiffStr})</strong> を追加補填してください。`;
+
+      } else if (diffPcs < 0) {
+        // 🔴 EXCESS -> REMOVAL NEEDED
+        statusCard.className = "rounded-xl p-3.5 border transition-all duration-300 bg-rose-950/40 border-rose-500/40 text-rose-300 mb-4 shadow-sm";
+        statusIconBg.className = "w-10 h-10 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0 text-xl font-black";
+        statusIcon.className = "fa-solid fa-minus";
+        statusBadge.className = "px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30";
+        statusBadge.innerText = "🔴 超過 (取り除き作業)";
+        statusTitle.innerText = `-${absDiffPcs} 個 超過 ➔ 抜き取り・棚戻しが必要`;
+
+        diffDisplay.className = "text-3xl font-black tracking-tight text-rose-400";
+        diffDisplay.innerHTML = `-${absDiffPcs} <span class="text-xs font-semibold text-slate-400">個</span>`;
+
+        step3Num.className = "w-4 h-4 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0 font-bold text-[9px] mt-0.5";
+        step3Text.innerHTML = `現場から <strong class="text-rose-400">${absDiffPcs}個 (${caseDiffStr})</strong> を取り除いて棚へお戻しください。`;
+
+      } else {
+        // ⚪ EXACT MATCH
+        statusCard.className = "rounded-xl p-3.5 border transition-all duration-300 bg-slate-800/60 border-slate-700 text-slate-300 mb-4";
+        statusIconBg.className = "w-10 h-10 rounded-lg bg-slate-700 text-slate-300 flex items-center justify-center shrink-0 text-xl font-black";
+        statusIcon.className = "fa-solid fa-check";
+        statusBadge.className = "px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase bg-slate-700 text-slate-300 border border-slate-600";
+        statusBadge.innerText = "⚪ 一致 (修正不要)";
+        statusTitle.innerText = `数量は一致しています`;
+
+        diffDisplay.className = "text-3xl font-black tracking-tight text-slate-300";
+        diffDisplay.innerHTML = `0 <span class="text-xs font-semibold text-slate-400">個</span>`;
+
+        step3Num.className = "w-4 h-4 rounded bg-slate-700 text-slate-300 flex items-center justify-center shrink-0 font-bold text-[9px] mt-0.5";
+        step3Text.innerHTML = `修正作業の必要はありません。`;
+      }
+    }
+
+    function resetCorrectionInputs() {
+      setInputValue('corr-sys-pcs', 10);
+      setInputValue('corr-sys-cases', 12);
+      setInputValue('corr-act-pcs', 12);
+      setInputValue('corr-act-cases', 12);
+    }
+
+    /* ==========================================================================
+       MODULE 2: TOTES & DOLLY CALCULATION
+       ========================================================================== */
+    function calculateTotes() {
+      const totalPcs = Math.max(0, parseInt(document.getElementById('tote-total-pcs').value, 10) || 0);
+      const pcsPerBox = Math.max(1, parseInt(document.getElementById('tote-pcs-per-box').value, 10) || 1);
+      const stackPerDolly = Math.max(1, parseInt(document.getElementById('tote-stack-per-dolly').value, 10) || 1);
+
+      const totalBoxes = Math.ceil(totalPcs / pcsPerBox);
+      const fullBoxes = Math.floor(totalPcs / pcsPerBox);
+      const loosePcs = totalPcs % pcsPerBox;
+
+      const pcsPerDolly = pcsPerBox * stackPerDolly;
+      const fullDollies = Math.floor(totalBoxes / stackPerDolly);
+      const remainderBoxes = totalBoxes % stackPerDolly;
+
+      document.getElementById('res-tote-total-boxes').innerHTML = `${totalBoxes} <span class="text-xs text-slate-400 font-semibold">箱</span>`;
+      document.getElementById('res-tote-box-sub').innerText = loosePcs > 0 ? `満載${fullBoxes}箱 + 1箱(端数${loosePcs}個)` : `全箱満載 (${pcsPerBox}個詰)`;
+
+      document.getElementById('res-tote-full-dollies').innerHTML = `${fullDollies} <span class="text-xs text-slate-400 font-semibold">台</span>`;
+      document.getElementById('res-tote-dolly-sub').innerText = `1台当たり${pcsPerDolly}個 (${stackPerDolly}段)`;
+
+      document.getElementById('res-tote-remainder').innerHTML = `${remainderBoxes} <span class="text-xs text-slate-400 font-semibold">段</span> <span class="text-sm font-bold text-slate-300">(${loosePcs > 0 ? loosePcs + '個端数' : '満載'})</span>`;
+
+      renderDollyGraphic(fullDollies, remainderBoxes, stackPerDolly, pcsPerBox, loosePcs);
+    }
+
+    function renderDollyGraphic(fullDollies, remainderBoxes, stackLimit, pcsPerBox, loosePcs) {
+      const container = document.getElementById('dolly-visual-container');
+      container.innerHTML = '';
+
+      if (fullDollies === 0 && remainderBoxes === 0) {
+        container.innerHTML = `<div class="text-xs text-slate-500 py-6 text-center w-full">数値を入れてください</div>`;
+        return;
+      }
+
+      const displayDollies = Math.min(fullDollies, 5);
+
+      for (let d = 0; d < displayDollies; d++) {
+        const dollyEl = document.createElement('div');
+        dollyEl.className = "flex flex-col items-center bg-slate-950 p-2 rounded-lg border border-slate-800 shrink-0 w-20 shadow-sm";
+        
+        let stacksHtml = '';
+        for (let s = stackLimit; s >= 1; s--) {
+          stacksHtml += `
+            <div class="w-full h-4 my-0.5 bg-sky-500/20 border border-sky-500/40 rounded flex items-center justify-center text-[9px] font-bold text-sky-300">
+              ${pcsPerBox}個
+            </div>
+          `;
+        }
+
+        dollyEl.innerHTML = `
+          <div class="text-[9px] text-slate-400 font-bold mb-0.5">台車 #${d+1}</div>
+          <div class="w-full space-y-0.5">${stacksHtml}</div>
+          <div class="w-full h-2 bg-amber-500/80 rounded-sm mt-1 flex items-center justify-around px-1">
+            <span class="w-1 h-1 bg-slate-950 rounded-full"></span>
+            <span class="w-1 h-1 bg-slate-950 rounded-full"></span>
+          </div>
+          <div class="text-[8px] text-amber-400 font-semibold mt-0.5">満載 (${stackLimit}段)</div>
+        `;
+        container.appendChild(dollyEl);
+      }
+
+      if (fullDollies > 5) {
+        const overflowEl = document.createElement('div');
+        overflowEl.className = "flex items-center justify-center bg-slate-950 px-2 rounded-lg border border-slate-800 shrink-0 text-xs text-slate-400 font-bold";
+        overflowEl.innerText = `+ ${fullDollies - 5} 台`;
+        container.appendChild(overflowEl);
+      }
+
+      if (remainderBoxes > 0) {
+        const remEl = document.createElement('div');
+        remEl.className = "flex flex-col items-center bg-slate-950 p-2 rounded-lg border border-emerald-500/40 shrink-0 w-20 shadow-sm bg-emerald-950/10";
+        
+        let stacksHtml = '';
+        for (let s = remainderBoxes; s >= 1; s--) {
+          const isTopLoose = (s === remainderBoxes && loosePcs > 0);
+          const pcsText = isTopLoose ? `${loosePcs}個` : `${pcsPerBox}個`;
+          const bgClass = isTopLoose ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300';
+
+          stacksHtml += `
+            <div class="w-full h-4 my-0.5 ${bgClass} border rounded flex items-center justify-center text-[8px] font-bold">
+              ${pcsText}
+            </div>
+          `;
+        }
+
+        remEl.innerHTML = `
+          <div class="text-[9px] text-emerald-400 font-bold mb-0.5">端数台車</div>
+          <div class="w-full space-y-0.5">${stacksHtml}</div>
+          <div class="w-full h-2 bg-emerald-500/80 rounded-sm mt-1 flex items-center justify-around px-1">
+            <span class="w-1 h-1 bg-slate-950 rounded-full"></span>
+            <span class="w-1 h-1 bg-slate-950 rounded-full"></span>
+          </div>
+          <div class="text-[8px] text-emerald-400 font-semibold mt-0.5">端数 (${remainderBoxes}段)</div>
+        `;
+        container.appendChild(remEl);
+      }
+    }
+
+    /* ==========================================================================
+       MODULE 3: CARTS CALCULATION
+       ========================================================================== */
+    function calculateCarts() {
+      const totalBoxes = Math.max(0, parseInt(document.getElementById('cart-total-boxes').value, 10) || 0);
+      const capacity = Math.max(1, parseInt(document.getElementById('cart-capacity').value, 10) || 1);
+
+      const fullCarts = Math.floor(totalBoxes / capacity);
+      const remainderBoxes = totalBoxes % capacity;
+      const totalCarts = Math.ceil(totalBoxes / capacity);
+
+      document.getElementById('res-cart-total-carts').innerHTML = `${totalCarts} <span class="text-xs text-slate-400 font-semibold">台</span>`;
+      document.getElementById('res-cart-total-sub').innerText = remainderBoxes > 0 ? `満載${fullCarts}台 + 端数1台` : `全車満載 (${capacity}箱/台)`;
+
+      document.getElementById('res-cart-full-carts').innerHTML = `${fullCarts} <span class="text-xs text-slate-400 font-semibold">台</span>`;
+      document.getElementById('res-cart-full-sub').innerText = `${fullCarts * capacity}箱分 (${capacity}箱×${fullCarts}台)`;
+
+      document.getElementById('res-cart-remainder-boxes').innerHTML = `${remainderBoxes} <span class="text-xs text-slate-400 font-semibold">箱</span>`;
+      document.getElementById('res-cart-remainder-sub').innerText = remainderBoxes > 0 ? `空き枠 ${capacity - remainderBoxes}箱分` : `余りなし`;
+
+      renderCartGraphic(fullCarts, remainderBoxes, capacity);
+    }
+
+    function renderCartGraphic(fullCarts, remainderBoxes, capacity) {
+      const container = document.getElementById('cart-visual-container');
+      container.innerHTML = '';
+
+      if (fullCarts === 0 && remainderBoxes === 0) {
+        container.innerHTML = `<div class="text-xs text-slate-500 py-6 text-center col-span-full">数値を入れてください</div>`;
+        return;
+      }
+
+      const displayFull = Math.min(fullCarts, 3);
+
+      for (let c = 0; c < displayFull; c++) {
+        const cartEl = document.createElement('div');
+        cartEl.className = "bg-slate-950 p-2.5 rounded-lg border border-emerald-500/30 flex flex-col items-center shadow-sm";
+        cartEl.innerHTML = `
+          <div class="text-[10px] font-bold text-slate-300 mb-1 flex items-center gap-1">
+            <i class="fa-solid fa-truck-ramp-box text-emerald-400"></i> カゴ車 #${c+1}
+          </div>
+          <div class="w-full h-16 bg-emerald-500/10 border border-emerald-500/30 rounded flex flex-col items-center justify-center p-1 text-center">
+            <span class="text-base font-black text-emerald-400">${capacity}</span>
+            <span class="text-[9px] text-slate-400">箱 (満載)</span>
+          </div>
+        `;
+        container.appendChild(cartEl);
+      }
+
+      if (fullCarts > 3) {
+        const overflowCart = document.createElement('div');
+        overflowCart.className = "bg-slate-950 p-2.5 rounded-lg border border-slate-800 flex items-center justify-center text-xs text-slate-400 font-bold";
+        overflowCart.innerText = `+ ${fullCarts - 3} 台`;
+        container.appendChild(overflowCart);
+      }
+
+      if (remainderBoxes > 0) {
+        const fillPercent = Math.round((remainderBoxes / capacity) * 100);
+        const remCart = document.createElement('div');
+        remCart.className = "bg-slate-950 p-2.5 rounded-lg border border-amber-500/40 flex flex-col items-center shadow-sm bg-amber-950/10";
+        remCart.innerHTML = `
+          <div class="text-[10px] font-bold text-amber-400 mb-1 flex items-center gap-1">
+            <i class="fa-solid fa-truck-ramp-box"></i> 端数カゴ車
+          </div>
+          <div class="w-full h-16 bg-amber-500/10 border border-amber-500/30 rounded flex flex-col items-center justify-center p-1 text-center relative overflow-hidden">
+            <span class="text-base font-black text-amber-400">${remainderBoxes} / ${capacity}</span>
+            <span class="text-[9px] text-slate-400">箱 (${fillPercent}%)</span>
+            <div class="absolute bottom-0 left-0 right-0 h-1 bg-amber-500" style="width: ${fillPercent}%"></div>
+          </div>
+        `;
+        container.appendChild(remCart);
+      }
+    }
+
+    // Help Modal Handler
+    const helpModal = document.getElementById('help-modal');
+    function openHelpModal() {
+      helpModal.classList.remove('hidden');
+    }
+    function closeHelpModal() {
+      helpModal.classList.add('hidden');
+    }
+
+    // Initialize App Calculations on Window Load
+    window.onload = function() {
+      calculateCorrection();
+      calculateTotes();
+      calculateCarts();
+    };
+  </script>
+</body>
+</html>
